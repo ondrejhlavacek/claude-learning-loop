@@ -39,7 +39,16 @@ ${CLAUDE_PLUGIN_DATA}/
 
 This directory is **managed by Claude Code** — it survives plugin updates and re-installs, but is not touched by `/plugin marketplace update`. To wipe everything, `rm -rf` it manually.
 
-The path is portable: nothing leaks into your `$HOME` or any project repo. Hook scripts and slash commands both read the path strictly from `${CLAUDE_PLUGIN_DATA}` — **no hardcoded fallback** by design, so the plugin tracks whatever path Claude Code provides today and in the future.
+The path is portable: nothing leaks into your `$HOME` or any project repo.
+
+**How the path is resolved:**
+
+| Context | Resolution |
+|---------|------------|
+| `SessionEnd` hook (`update-learnings-hook.sh`) | `${CLAUDE_PLUGIN_DATA}` is injected by Claude Code into hook subprocesses — hook fails fast if missing. |
+| Slash commands run interactively | Claude Code (as of 2.1.x) **does not** inject `${CLAUDE_PLUGIN_DATA}` into the Bash tool of the main session. The commands try the env var first, then fall back to a glob `~/.claude/plugins/data/learning-loop-*/`. The glob is robust against marketplace renames but refuses to guess if it finds zero or multiple candidates. |
+
+If Claude Code starts injecting the env var into slash commands in a future version, the glob fallback simply never fires.
 
 ## Requirements
 

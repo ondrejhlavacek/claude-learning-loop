@@ -4,14 +4,31 @@ description: Konsoliduje session soubory v plugin data adresáři → updatuje P
 
 ## Plugin data directory
 
-Tento plugin pracuje s adresářem `${CLAUDE_PLUGIN_DATA}`. Na začátku zjisti cestu přes Bash a ulož si do `DATA_DIR`:
+Tento plugin pracuje s plugin data adresářem. Na začátku zjisti cestu tímto bash snippetem (zkopíruj přesně):
 
 ```bash
-DATA_DIR="${CLAUDE_PLUGIN_DATA:?CLAUDE_PLUGIN_DATA is not set — is this running inside Claude Code as a plugin?}"
+resolve_data_dir() {
+  if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
+    printf '%s\n' "$CLAUDE_PLUGIN_DATA"
+    return 0
+  fi
+  # Fallback pro interaktivní run: CLAUDE_PLUGIN_DATA Claude Code do Bash toolu
+  # hlavní session neinjektuje (k 2.1.x). Najdeme data dir přes find na plugin name.
+  # find použito místo shell glob kvůli zsh/bash kompatibilitě (zsh má 1-based arrays).
+  local matches
+  matches=$(find "$HOME/.claude/plugins/data" -mindepth 1 -maxdepth 1 -type d -name 'learning-loop-*' 2>/dev/null)
+  [ -n "$matches" ] || return 1
+  if [ "$(printf '%s\n' "$matches" | wc -l | tr -d ' ')" = "1" ]; then
+    printf '%s\n' "$matches"
+    return 0
+  fi
+  return 1
+}
+DATA_DIR=$(resolve_data_dir) || { echo "Cannot locate learning-loop plugin data directory." >&2; exit 1; }
 echo "$DATA_DIR"
 ```
 
-Pokud env var prázdná, oznam uživateli chybu prostředí a skonči — žádný fallback, žádné hádání cesty.
+Pokud snippet selže (chybí data adresář, nebo jich existuje víc kandidátů), oznam uživateli chybu a skonči — neuhádni cestu sám.
 
 Dál v textu používám `$DATA_DIR` jako tento root path. Struktura:
 
