@@ -9,6 +9,15 @@ A Claude Code plugin that turns every session into reusable knowledge.
 
 The triage looks for four kinds of findings: **skill-gap**, **friction**, **knowledge**, **automation**. Generic coding best-practices and one-off context are filtered out.
 
+## Design: advisory-only, no closed loop
+
+By design this plugin **does not close the learning loop automatically.** Concretely:
+
+- `PRINCIPLES.md` is **not** auto-loaded into future sessions' context (no `SessionStart` hook, no auto-injection).
+- `consolidate-learnings` **never edits** `CLAUDE.md`, skills, hooks, or anything outside `${CLAUDE_PLUGIN_DATA}`. It only emits *suggestions* that the user can decide to apply manually.
+
+The reasoning: the prompts in this plugin are still being tuned. Until the triage produces stable, high-signal output across months of usage, auto-injecting its conclusions into every session would silently amplify any noise. An advisory-only system lets the user stay the gatekeeper. When the prompts prove themselves reliable, closing the loop (e.g. a `SessionStart` hook that loads `PRINCIPLES.md`) is a deliberate, opt-in next step — not the default.
+
 ## Components
 
 | Component | Path | Trigger |

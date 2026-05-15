@@ -39,13 +39,24 @@ Hledej nálezy ve čtyřech kategoriích:
 - **knowledge** — fakta o projektu/preferencích/setupu, která Claude neznal a měl by je znát
 - **automation** — opakující se vzorce → kandidáti na skill, hook nebo script
 
-**Co NE-zařazovat:**
+### Tvrdé triggery — zaznamenej insight POUZE pokud platí alespoň jeden
+
+1. **Uživatel opravil Claude kód** (chybné API, špatná syntax, neexistující funkce, špatný import)
+2. **Uživatel explicitně odmítl postup** ("ne, takhle ne", "stop", "nedělej X", "vrať to zpátky", "místo toho udělej Y")
+3. **> 2 iterace na triviální cíl** (Claude musel třikrát+ opravovat něco, co mělo být na první pokus — překlepy v názvech souborů, špatné cesty, opakované lint chyby)
+4. **Uživatel sdělil neznámý fakt o setupu/projektu** ("u nás se používá X", "pozor, Y je v Z", "máme to v repo W") — fakt, který bys neuhádl z kódu
+5. **Opakovaný manuální krok** uživatele, který by mohl být automatizovaný (3+× stejná oprava v session)
+
+Bez splnění alespoň jednoho triggeru → **nezařazuj**. Subjektivní pocity ("uživatel asi preferuje X") nestačí.
+
+**Co NE-zařazovat ani když trigger platí:**
 - Obecné coding best practices (patří do CLAUDE.md, ne do learnings)
-- Jednorázové situace
+- Jednorázové situace bez budoucí relevance
 - Věci už dokumentované v kódu/gitu/CLAUDE.md
 - Aktuální task progress
+- Banality ("uživatel preferuje čistý kód", "uživatel chce funkční testy")
 
-Filtr: zařaď jen nálezy s **70%+ šancí** být relevantní v jiné session. Když nemáš co zařadit, vytvoř soubor s prázdnou sekcí Entries — neumělé entries jsou horší než žádné.
+Když nemáš co zařadit (žádný trigger nevypálil), vytvoř soubor s prázdnou sekcí Entries — falešné entries jsou horší než žádné.
 
 V headless módu buď zvlášť opatrný — bez interaktivního kontextu hrozí false positives. Když si nejsi jistý, raději vynech.
 
@@ -68,6 +79,7 @@ date: YYYY-MM-DD
 session_id: 779a15ef-dea0-4814-b682-34ea1b5d2f4b   # vynech v interaktivním módu
 origin_cwd: /Users/ondra/Coding/<repo>
 origin_branch: main             # vynech pokud nejde o git repo nebo "HEAD"
+tech_stack: [typescript, react, pnpm]   # technologie session — viz pravidla níže
 session_summary: 1 věta o tom, čeho se session týkala
 status: open
 mode: headless | interactive
@@ -79,12 +91,19 @@ mode: headless | interactive
 
 ### 1. Krátký titulek (max 60 znaků)
 - **Kategorie:** skill-gap | friction | knowledge | automation
+- **Tech:** [python, fastapi] — pokud entry platí jen pro konkrétní stack; vynech pokud univerzální
 - **Kontext:** 1-2 věty, co se dělo
 - **Insight:** 1-3 věty, co je poznatek (a proč — bez "proč" nelze později posoudit)
 - **Akce:** typ + krátká specifikace (např. "CLAUDE.md global: přidat pravidlo X")
 
 ### 2. ...
 ```
+
+### Pravidla pro `tech_stack`
+
+- Session-level `tech_stack` = primární technologie/jazyky/frameworky session, max 4 položky, lowercase kebab-case (`typescript`, `react`, `pnpm`, `terraform`, `python`, `fastapi`, `keboola-cli`, `sql`, `bash`, ...).
+- Per-entry `Tech:` = užší stack, pokud entry platí jen pro něj. Pokud platí univerzálně (např. preferuje češtinu, git workflow), pole vynech.
+- Bez tech kontextu by konsolidace neuměla rozhodnout, jestli princip "nepoužívej export default" platí globálně nebo jen v React projektu.
 
 Když 0 nálezů, sekce Entries dostane jednu řádku: `_Žádné trvalé insighty v této session._`
 

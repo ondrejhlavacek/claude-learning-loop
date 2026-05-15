@@ -45,11 +45,12 @@ Sesbírej všechny `### N. ...` entries ze všech session souborů. Pak:
 
 ## 3. Update PRINCIPLES.md
 
-**Seskup nejdřív podle `origin_cwd`** ze frontmatteru jednotlivých session souborů. Některé principy jsou **globální** (platí napříč všemi repos), jiné **repo-specific** (např. konvence v `~/Coding/oncall/`).
+**Seskup nejdřív podle `origin_cwd` a `tech_stack`** ze frontmatteru jednotlivých session souborů. Některé principy jsou **globální** (platí napříč všemi repos), jiné **repo-specific** (např. konvence v `~/Coding/oncall/`), další **tech-specific** (jen pro React, jen pro Python, ...).
 
 Heuristika:
-- Pokud 3+ entries ze 2+ různých `origin_cwd` říkají totéž → **globální princip**
-- Pokud 3+ entries z jediného `origin_cwd` říkají totéž → **repo-specific princip**
+- Pokud 3+ entries ze 2+ různých `origin_cwd` **a** se stejným/překrývajícím `tech_stack` říkají totéž → **globální princip pro daný stack**
+- Pokud 3+ entries ze 2+ různých `origin_cwd` napříč různými stacks → **opravdu globální princip** (neváže se na technologii)
+- Pokud 3+ entries z jediného `origin_cwd` → **repo-specific princip**
 
 V `PRINCIPLES.md` udržuj sekce:
 
@@ -57,6 +58,10 @@ V `PRINCIPLES.md` udržuj sekce:
 ## Principles — global
 
 - **Krátké pravidlo.** Proč: ... | Zdroj: N entries (YYYY-MM-DD až YYYY-MM-DD)
+
+## Principles — tech: typescript+react
+
+- **Krátké pravidlo platné jen pro tento stack.** Proč: ... | Zdroj: ...
 
 ## Principles — repo: /Users/ondra/Coding/oncall
 
@@ -72,6 +77,15 @@ Před přidáním zkontroluj, že stejný/podobný princip tam ještě není (po
 Pokud principle už není relevantní (superseded jiným, vyřešeno v CLAUDE.md), smaž ho.
 
 PRINCIPLES.md má zůstat **krátký a stabilní** — ideálně do ~30 odrážek. Pokud roste přes to, slučuj agresivněji.
+
+### Pravidla pro formulaci principu
+
+- **Zachovej konkrétní jména** tříd, flagů, API, příkazů a souborů zmíněných v původních entries. Neredukuj na vágní fráze.
+  - Špatně: "Při použití test frameworku používej správné flagy."
+  - Dobře: "Při `pnpm test` použij `-- <soubor>`, ne workspace-wide testy — workspace timeoutuje subagenta po 2 minutách."
+- **Vždy uveď proč** ("Proč: ...") — bez důvodu nelze v budoucnu posoudit, jestli princip stále platí, nebo zda jen reflektoval konkrétní past, kterou už CLAUDE.md řeší.
+- **Bez technologického kontextu princip nemá smysl** pokud je tech-specific — buď ho zařaď do `Principles — tech:`, nebo do textu pravidla výslovně uveď stack ("V React projektech: ...").
+- Vyhni se obecným banalitám typu "piš čistý kód", "testuj svůj kód" — to už je v CLAUDE.md nebo by mělo být.
 
 ## 4. Archivace session souborů
 
