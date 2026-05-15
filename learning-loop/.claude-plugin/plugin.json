@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "learning-loop",
+  "version": "0.1.0",
+  "description": "Triage each Claude Code session into per-session learnings, then consolidate them into stable principles.",
+  "author": {
+    "name": "Ondrej Hlavacek",
+    "url": "https://github.com/ondrejhlavacek"
+  },
+  "homepage": "https://github.com/ondrejhlavacek/claude-learning-loop",
+  "repository": "https://github.com/ondrejhlavacek/claude-learning-loop",
+  "license": "MIT",
+  "keywords": ["learnings", "session-triage", "principles", "hooks"]
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-marketplace.json",
+  "name": "claude-learning-loop",
+  "owner": {
+    "name": "Ondrej Hlavacek",
+    "url": "https://github.com/ondrejhlavacek"
+  },
+  "plugins": [
+    {
+      "name": "learning-loop",
+      "source": "./learning-loop",
+      "description": "Triage each Claude Code session into per-session learnings, then consolidate them into stable principles.",
+      "version": "0.1.0",
+      "category": "workflow",
+      "tags": ["learnings", "session-triage", "principles", "hooks"]
+    }
+  ]
+}
