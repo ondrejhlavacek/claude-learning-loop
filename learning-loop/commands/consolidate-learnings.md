@@ -1,10 +1,10 @@
 ---
-description: Konsoliduje session soubory v plugin data adresáři → updatuje PRINCIPLES.md a archivuje. Žádné edity mimo data adresář, jen flaguje návrhy.
+description: Consolidate session files in the plugin data directory into PRINCIPLES.md and archive the processed sessions. Does not edit anything outside the data directory — only flags suggestions.
 ---
 
 ## Plugin data directory
 
-Tento plugin pracuje s plugin data adresářem. Na začátku zjisti cestu tímto bash snippetem (zkopíruj přesně):
+This command operates on the plugin data directory. Resolve `DATA_DIR` with this exact bash snippet:
 
 ```bash
 resolve_data_dir() {
@@ -12,9 +12,10 @@ resolve_data_dir() {
     printf '%s\n' "$CLAUDE_PLUGIN_DATA"
     return 0
   fi
-  # Fallback pro interaktivní run: CLAUDE_PLUGIN_DATA Claude Code do Bash toolu
-  # hlavní session neinjektuje (k 2.1.x). Najdeme data dir přes find na plugin name.
-  # find použito místo shell glob kvůli zsh/bash kompatibilitě (zsh má 1-based arrays).
+  # Fallback for interactive runs: Claude Code (as of 2.1.x) does not inject
+  # CLAUDE_PLUGIN_DATA into the Bash tool of the main session. Locate the
+  # data directory via `find` on the plugin name. We use `find` instead of a
+  # shell glob because zsh (macOS default) and bash disagree on array indexing.
   local matches
   matches=$(find "$HOME/.claude/plugins/data" -mindepth 1 -maxdepth 1 -type d -name 'learning-loop-*' 2>/dev/null)
   [ -n "$matches" ] || return 1
@@ -28,111 +29,111 @@ DATA_DIR=$(resolve_data_dir) || { echo "Cannot locate learning-loop plugin data 
 echo "$DATA_DIR"
 ```
 
-Pokud snippet selže (chybí data adresář, nebo jich existuje víc kandidátů), oznam uživateli chybu a skonči — neuhádni cestu sám.
+If the snippet fails (no data directory, or multiple candidates), tell the user and stop — do **not** guess a path.
 
-Dál v textu používám `$DATA_DIR` jako tento root path. Struktura:
+`$DATA_DIR` is used throughout the rest of this command. Layout:
 
 ```
 $DATA_DIR/
-├── sessions/       # per-session learnings (vstup konsolidace)
-├── archive/        # zpracované session soubory
-└── PRINCIPLES.md   # konsolidované principy
+├── sessions/       # per-session learnings (input for consolidation)
+├── archive/        # processed session files
+└── PRINCIPLES.md   # consolidated principles
 ```
 
-**Nic mimo `$DATA_DIR` automaticky neměň** (žádné edity CLAUDE.md, skillů, hooků). Akce na úpravu jiných souborů jen flaguj jako návrhy.
+**Do not modify anything outside `$DATA_DIR`** (no edits to CLAUDE.md, skills, hooks, etc.). Cross-directory changes are only flagged as suggestions.
 
-## 1. Načti vstup
+## 1. Load input
 
 ```bash
 ls "$DATA_DIR/sessions/"*.md 2>/dev/null
 ```
 
-Pokud je seznam prázdný, oznam "není co konsolidovat" a skonči.
+If the list is empty, say "nothing to consolidate" and stop.
 
-Přečti všechny session soubory + aktuální `$DATA_DIR/PRINCIPLES.md` (pokud existuje).
+Read every session file plus the current `$DATA_DIR/PRINCIPLES.md` (if it exists).
 
-## 2. Analýza napříč entries
+## 2. Cross-entry analysis
 
-Sesbírej všechny `### N. ...` entries ze všech session souborů. Pak:
+Collect all `### N. ...` entries from every session file. Then:
 
-- **Identifikuj duplicity** — entries říkající totéž jinými slovy napříč session
-- **Identifikuj příbuzné** — 2-3 entries pokrývající stejnou doménu
-- **Identifikuj vzorce** — 3+ entries v různých session ukazujících stejný princip → kandidát na principle
-- **Identifikuj zastaralé** — entries superseded novějšími nebo už nerelevantní
+- **Find duplicates** — entries saying the same thing in different words across sessions.
+- **Find neighbours** — 2–3 entries covering the same domain.
+- **Find patterns** — 3+ entries across different sessions pointing at the same principle → candidate for promotion.
+- **Find stale entries** — those superseded by newer ones or no longer relevant.
 
 ## 3. Update PRINCIPLES.md
 
-**Seskup nejdřív podle `origin_cwd` a `tech_stack`** ze frontmatteru jednotlivých session souborů. Některé principy jsou **globální** (platí napříč všemi repos), jiné **repo-specific** (např. konvence v `~/Coding/oncall/`), další **tech-specific** (jen pro React, jen pro Python, ...).
+**First group by `origin_cwd` and `tech_stack`** from the frontmatter of each session file. Some principles are **global** (apply across all repos), others are **repo-specific** (e.g. conventions in `~/Coding/oncall/`), still others are **tech-specific** (only React, only Python, ...).
 
-Heuristika:
-- Pokud 3+ entries ze 2+ různých `origin_cwd` **a** se stejným/překrývajícím `tech_stack` říkají totéž → **globální princip pro daný stack**
-- Pokud 3+ entries ze 2+ různých `origin_cwd` napříč různými stacks → **opravdu globální princip** (neváže se na technologii)
-- Pokud 3+ entries z jediného `origin_cwd` → **repo-specific princip**
+Heuristics:
+- 3+ entries from 2+ different `origin_cwd` **with** the same/overlapping `tech_stack` → **global principle for that stack**.
+- 3+ entries from 2+ different `origin_cwd` across different stacks → **truly global principle** (not tied to a specific technology).
+- 3+ entries from a single `origin_cwd` → **repo-specific principle**.
 
-V `PRINCIPLES.md` udržuj sekce:
+Maintain sections in `PRINCIPLES.md`:
 
 ```
 ## Principles — global
 
-- **Krátké pravidlo.** Proč: ... | Zdroj: N entries (YYYY-MM-DD až YYYY-MM-DD)
+- **Short rule.** Why: ... | Source: N entries (YYYY-MM-DD to YYYY-MM-DD)
 
 ## Principles — tech: typescript+react
 
-- **Krátké pravidlo platné jen pro tento stack.** Proč: ... | Zdroj: ...
+- **Short rule that applies only to this stack.** Why: ... | Source: ...
 
-## Principles — repo: /Users/ondra/Coding/oncall
+## Principles — repo: /Users/<you>/Coding/oncall
 
-- **Krátké pravidlo specifické pro tento repo.** Proč: ... | Zdroj: ...
+- **Short repo-specific rule.** Why: ... | Source: ...
 
-## Principles — repo: /Users/ondra/Coding/keboola-foo
+## Principles — repo: /Users/<you>/Coding/foo
 
 ...
 ```
 
-Před přidáním zkontroluj, že stejný/podobný princip tam ještě není (pokud ano, jen update Zdroj/datum).
+Before adding, check the same/similar principle isn't there already (if so, just update Source/date).
 
-Pokud principle už není relevantní (superseded jiným, vyřešeno v CLAUDE.md), smaž ho.
+If a principle is no longer relevant (superseded, or already in CLAUDE.md), delete it.
 
-PRINCIPLES.md má zůstat **krátký a stabilní** — ideálně do ~30 odrážek. Pokud roste přes to, slučuj agresivněji.
+PRINCIPLES.md should stay **short and stable** — ideally under ~30 bullets. If it grows beyond that, merge more aggressively.
 
-### Pravidla pro formulaci principu
+### Rules for formulating a principle
 
-- **Zachovej konkrétní jména** tříd, flagů, API, příkazů a souborů zmíněných v původních entries. Neredukuj na vágní fráze.
-  - Špatně: "Při použití test frameworku používej správné flagy."
-  - Dobře: "Při `pnpm test` použij `-- <soubor>`, ne workspace-wide testy — workspace timeoutuje subagenta po 2 minutách."
-- **Vždy uveď proč** ("Proč: ...") — bez důvodu nelze v budoucnu posoudit, jestli princip stále platí, nebo zda jen reflektoval konkrétní past, kterou už CLAUDE.md řeší.
-- **Bez technologického kontextu princip nemá smysl** pokud je tech-specific — buď ho zařaď do `Principles — tech:`, nebo do textu pravidla výslovně uveď stack ("V React projektech: ...").
-- Vyhni se obecným banalitám typu "piš čistý kód", "testuj svůj kód" — to už je v CLAUDE.md nebo by mělo být.
+- **Preserve concrete names** of classes, flags, APIs, commands, and files mentioned in the source entries. Don't reduce them to vague phrases.
+  - Bad: "When running the test framework, use the right flags."
+  - Good: "With `pnpm test`, use `-- <file>`, not workspace-wide tests — workspace timeouts kill subagents at the 2-minute mark."
+- **Always state the why** ("Why: ...") — without a reason it's impossible to judge later whether the principle still applies, or whether it was just reacting to a one-off trap already fixed elsewhere.
+- **Tech-specific principles need explicit tech context** — either place them under `Principles — tech:`, or state the stack in the rule itself ("In React projects: ...").
+- Avoid generic banalities like "write clean code" or "test your code" — those belong in CLAUDE.md or are already obvious.
 
-## 4. Archivace session souborů
+## 4. Archive processed sessions
 
-Všechny session soubory, které jsi zpracoval, přesuň do `$DATA_DIR/archive/`:
+Move every session file you processed into `$DATA_DIR/archive/`:
 
 ```bash
 mkdir -p "$DATA_DIR/archive"
 mv "$DATA_DIR/sessions/<file>.md" "$DATA_DIR/archive/"
 ```
 
-**Výjimka:** session soubor s `status: open` v frontmatteru, kde žádný entry nebyl použit pro principle ani sloučen — ponech v `sessions/` (může se stát relevantním později spolu s budoucími entries). Označuj střídmě, default je archivovat.
+**Exception:** a session file with `status: open` in its frontmatter, where no entry was used for a principle or merged — leave it in `sessions/` (it might become relevant later, combined with future entries). Use this exception sparingly; the default is to archive.
 
-## 5. Report a flagging
+## 5. Report and flagging
 
-Vypiš:
+Print:
 
-**Konsolidace:**
-- Zpracováno session souborů: N (archivováno: M, ponecháno: K)
-- Nové principy: N (vypiš titulky)
-- Updated principy: N
-- Smazané principy (superseded): N
+**Consolidation:**
+- Sessions processed: N (archived: M, kept: K)
+- New principles: N (list titles)
+- Updated principles: N
+- Removed principles (superseded): N
 
-**Návrhy k uživatelovu schválení (NIC neaplikováno):**
+**Suggestions for the user to review (NOTHING applied):**
 
-Pro každý principle nebo high-impact entry navrhni cílový soubor:
+For each principle or high-impact entry, propose a target file:
 
 ```
-1. [PRINCIPLE→CLAUDE.md] "..." → přidat do ~/.claude/CLAUDE.md sekce X
-2. [PATTERN→SKILL] entries Y, Z naznačují potřebu skillu pro doménu D
-3. [FRICTION→HOOK] friction Q se opakuje → PostToolUse hook s X
+1. [PRINCIPLE→CLAUDE.md] "..." → add to ~/.claude/CLAUDE.md section X
+2. [PATTERN→SKILL] entries Y, Z suggest a skill for domain D
+3. [FRICTION→HOOK] friction Q recurs → PostToolUse hook with X
 ```
 
-Na konci se zeptej: "Chceš některý návrh aplikovat?" — čekej na odpověď, neaplikuj nic bez explicitního OK.
+End by asking: "Want to apply any of these?" — wait for an explicit OK before applying anything.

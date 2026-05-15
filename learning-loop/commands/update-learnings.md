@@ -1,12 +1,12 @@
 ---
-description: Triáž Claude Code session. Bez argumentů analyzuje aktuální konverzaci. S argumenty (transcript_path output_path) běží headless z hooku.
+description: Triage a Claude Code session. Without arguments analyses the current conversation; with arguments runs headless from the SessionEnd hook.
 ---
 
-Argumenty: `$ARGUMENTS`
+Arguments: `$ARGUMENTS`
 
 ## Plugin data directory
 
-Tento plugin ukládá session learnings do `<DATA_DIR>/sessions/`. Cestu zjisti tímto bash snippetem (zkopíruj přesně):
+This plugin stores session learnings in `<DATA_DIR>/sessions/`. Resolve `DATA_DIR` with this exact bash snippet:
 
 ```bash
 resolve_data_dir() {
@@ -14,9 +14,10 @@ resolve_data_dir() {
     printf '%s\n' "$CLAUDE_PLUGIN_DATA"
     return 0
   fi
-  # Fallback pro interaktivní run: CLAUDE_PLUGIN_DATA Claude Code do Bash toolu
-  # hlavní session neinjektuje (k 2.1.x). Najdeme data dir přes find na plugin name.
-  # find použito místo shell glob kvůli zsh/bash kompatibilitě (zsh má 1-based arrays).
+  # Fallback for interactive runs: Claude Code (as of 2.1.x) does not inject
+  # CLAUDE_PLUGIN_DATA into the Bash tool of the main session. Locate the
+  # data directory via `find` on the plugin name. We use `find` instead of a
+  # shell glob because zsh (macOS default) and bash disagree on array indexing.
   local matches
   matches=$(find "$HOME/.claude/plugins/data" -mindepth 1 -maxdepth 1 -type d -name 'learning-loop-*' 2>/dev/null)
   [ -n "$matches" ] || return 1
@@ -30,75 +31,75 @@ DATA_DIR=$(resolve_data_dir) || { echo "Cannot locate learning-loop plugin data 
 echo "$DATA_DIR"
 ```
 
-Pokud snippet selže (chybí data adresář, nebo jich existuje víc kandidátů), oznam uživateli chybu a skonči — neuhádni cestu sám.
+If the snippet fails (no data directory, or multiple candidates), tell the user and stop — do **not** guess a path.
 
-## Mód detekce
+## Mode detection
 
-Pokud `$ARGUMENTS` obsahuje **2-5 položek oddělených mezerou** (`<transcript.jsonl> <output.md> [cwd] [git_branch] [session_id]`):
-- **Headless mód** (volá tě hook): přečti transcript, výstup zapiš do output.md
-- Nečti aktuální konverzaci — pracuj jen s daty z transkriptu
-- 3. arg = absolutní cesta k repu/cwd kde session běžela (zapiš jako `origin_cwd`)
-- 4. arg = git branch (zapiš jako `origin_branch`, vynech řádku pokud prázdné/HEAD)
-- 5. arg = full session_id (UUID, zapiš jako `session_id` — slouží k dedup při /resume)
+If `$ARGUMENTS` contains **2–5 space-separated items** (`<transcript.jsonl> <output.md> [cwd] [git_branch] [session_id]`):
+- **Headless mode** (invoked by the hook): read the transcript, write the output to `output.md`.
+- Do **not** read the current conversation — work only from the transcript.
+- 3rd arg = absolute path to the repo/cwd where the session ran (record as `origin_cwd`).
+- 4th arg = git branch (record as `origin_branch`; omit the line if empty or `HEAD`).
+- 5th arg = full session_id (UUID, record as `session_id` — used to dedup on `/resume`).
 
-Pokud `$ARGUMENTS` je **prázdné**:
-- **Interaktivní mód**: analyzuj aktuální konverzaci
-- Výstupní cesta = `<DATA_DIR>/sessions/YYYY-MM-DD-HHMM.md`, kde `<DATA_DIR>` je výsledek bash příkazu výše
-- `origin_cwd` = aktuální pracovní adresář (zjisti `pwd`)
-- `origin_branch` = aktuální git branch pokud je v gitu (zjisti `git branch --show-current`), jinak vynech
-- `session_id` vynech (interaktivní run nemá deterministicky známé session_id)
+If `$ARGUMENTS` is **empty**:
+- **Interactive mode**: analyse the current conversation.
+- Output path = `<DATA_DIR>/sessions/YYYY-MM-DD-HHMM.md`, where `<DATA_DIR>` comes from the snippet above.
+- `origin_cwd` = current working directory (`pwd`).
+- `origin_branch` = current git branch if inside a repo (`git branch --show-current`); otherwise omit.
+- Omit `session_id` (interactive runs don't have a deterministically known one).
 
-## 1. Sběr nálezů
+## 1. Collecting findings
 
-Hledej nálezy ve čtyřech kategoriích:
+Look for findings in four categories:
 
-- **skill-gap** — věci, které Claude nezvládl, dělal opakovaně špatně, vyžadovaly víc pokusů
-- **friction** — opakované manuální kroky, věci které musel uživatel explicitně říct, ale měly být defaultní
-- **knowledge** — fakta o projektu/preferencích/setupu, která Claude neznal a měl by je znát
-- **automation** — opakující se vzorce → kandidáti na skill, hook nebo script
+- **skill-gap** — things Claude failed at, repeatedly got wrong, or that took multiple tries.
+- **friction** — repeated manual steps; things the user had to say explicitly that should have been default behaviour.
+- **knowledge** — facts about the project/preferences/setup Claude didn't know but should.
+- **automation** — recurring patterns → candidates for a skill, hook, or script.
 
-### Tvrdé triggery — zaznamenej insight POUZE pokud platí alespoň jeden
+### Hard triggers — record an insight ONLY if at least one applies
 
-1. **Uživatel opravil Claude kód** (chybné API, špatná syntax, neexistující funkce, špatný import)
-2. **Uživatel explicitně odmítl postup** ("ne, takhle ne", "stop", "nedělej X", "vrať to zpátky", "místo toho udělej Y")
-3. **> 2 iterace na triviální cíl** (Claude musel třikrát+ opravovat něco, co mělo být na první pokus — překlepy v názvech souborů, špatné cesty, opakované lint chyby)
-4. **Uživatel sdělil neznámý fakt o setupu/projektu** ("u nás se používá X", "pozor, Y je v Z", "máme to v repo W") — fakt, který bys neuhádl z kódu
-5. **Opakovaný manuální krok** uživatele, který by mohl být automatizovaný (3+× stejná oprava v session)
+1. **The user corrected Claude's code** (wrong API, bad syntax, non-existent function, wrong import).
+2. **The user explicitly refused a course of action** ("no, not like that", "stop", "don't do X", "revert that", "do Y instead").
+3. **More than 2 iterations on a trivial goal** (Claude had to fix the same kind of issue 3+ times — typos in filenames, wrong paths, repeated lint failures).
+4. **The user revealed an unknown fact about the setup/project** ("we use X here", "watch out, Y is in Z", "it's in repo W") — something you could not have guessed from the code.
+5. **A user repeated a manual step** that should have been automated (3+ identical fix-ups in one session).
 
-Bez splnění alespoň jednoho triggeru → **nezařazuj**. Subjektivní pocity ("uživatel asi preferuje X") nestačí.
+Without at least one of these triggers → **do not record**. Subjective vibes ("the user probably prefers X") are not enough.
 
-**Co NE-zařazovat ani když trigger platí:**
-- Obecné coding best practices (patří do CLAUDE.md, ne do learnings)
-- Jednorázové situace bez budoucí relevance
-- Věci už dokumentované v kódu/gitu/CLAUDE.md
-- Aktuální task progress
-- Banality ("uživatel preferuje čistý kód", "uživatel chce funkční testy")
+**Do not record even if a trigger fired:**
+- Generic coding best practices (those belong in CLAUDE.md, not in learnings).
+- One-off situations with no future relevance.
+- Things already documented in the code/git/CLAUDE.md.
+- Current task progress.
+- Banalities ("user prefers clean code", "user wants tests").
 
-Když nemáš co zařadit (žádný trigger nevypálil), vytvoř soubor s prázdnou sekcí Entries — falešné entries jsou horší než žádné.
+If there's nothing to record (no trigger fired), create a file with an empty Entries section anyway — empty is better than fabricated.
 
-V headless módu buď zvlášť opatrný — bez interaktivního kontextu hrozí false positives. Když si nejsi jistý, raději vynech.
+In headless mode, be extra conservative — without interactive context the false-positive risk is higher. When in doubt, leave it out.
 
-## 2. Triáž akce
+## 2. Action triage
 
-Pro každý nález urči navrhovanou akci (jen návrh, **nic neaplikuj**):
-- **CLAUDE.md (global / project)** — pravidlo aplikovatelné vždy
-- **Nový skill** — situational workflow, načítaný on-demand
-- **Hook** — event-driven automatizace
-- **Auto-memory** — konkrétní fakt (typ user/feedback/project/reference)
-- **Nic** — jen zaznamenat
+For each finding, propose an action (just a proposal — **apply nothing**):
+- **CLAUDE.md (global / project)** — a rule that always applies.
+- **New skill** — situational workflow loaded on demand.
+- **Hook** — event-driven automation.
+- **Auto-memory** — a specific fact (type user/feedback/project/reference).
+- **None** — just record it.
 
-## 3. Zápis
+## 3. Writing the file
 
-Vytvoř výstupní soubor (cesta dle módu výše) tímto formátem:
+Create the output file (path per mode above) in this format:
 
 ```markdown
 ---
 date: YYYY-MM-DD
-session_id: 779a15ef-dea0-4814-b682-34ea1b5d2f4b   # vynech v interaktivním módu
-origin_cwd: /Users/ondra/Coding/<repo>
-origin_branch: main             # vynech pokud nejde o git repo nebo "HEAD"
-tech_stack: [typescript, react, pnpm]   # technologie session — viz pravidla níže
-session_summary: 1 věta o tom, čeho se session týkala
+session_id: 779a15ef-dea0-4814-b682-34ea1b5d2f4b   # omit in interactive mode
+origin_cwd: /Users/<you>/Coding/<repo>
+origin_branch: main             # omit if not a git repo or "HEAD"
+tech_stack: [typescript, react, pnpm]   # technologies of the session — see rules below
+session_summary: one sentence describing what the session was about
 status: open
 mode: headless | interactive
 ---
@@ -107,31 +108,31 @@ mode: headless | interactive
 
 ## Entries
 
-### 1. Krátký titulek (max 60 znaků)
-- **Kategorie:** skill-gap | friction | knowledge | automation
-- **Tech:** [python, fastapi] — pokud entry platí jen pro konkrétní stack; vynech pokud univerzální
-- **Kontext:** 1-2 věty, co se dělo
-- **Insight:** 1-3 věty, co je poznatek (a proč — bez "proč" nelze později posoudit)
-- **Akce:** typ + krátká specifikace (např. "CLAUDE.md global: přidat pravidlo X")
+### 1. Short title (max 60 chars)
+- **Category:** skill-gap | friction | knowledge | automation
+- **Tech:** [python, fastapi] — if the entry applies only to a specific stack; omit if universal
+- **Context:** 1–2 sentences describing what happened
+- **Insight:** 1–3 sentences with the takeaway (and *why* — without a "why" the entry can't be judged later)
+- **Action:** type + short spec (e.g. "CLAUDE.md global: add rule X")
 
 ### 2. ...
 ```
 
-### Pravidla pro `tech_stack`
+### Rules for `tech_stack`
 
-- Session-level `tech_stack` = primární technologie/jazyky/frameworky session, max 4 položky, lowercase kebab-case (`typescript`, `react`, `pnpm`, `terraform`, `python`, `fastapi`, `keboola-cli`, `sql`, `bash`, ...).
-- Per-entry `Tech:` = užší stack, pokud entry platí jen pro něj. Pokud platí univerzálně (např. preferuje češtinu, git workflow), pole vynech.
-- Bez tech kontextu by konsolidace neuměla rozhodnout, jestli princip "nepoužívej export default" platí globálně nebo jen v React projektu.
+- Session-level `tech_stack` = primary technologies/languages/frameworks of the session, max 4 items, lowercase kebab-case (`typescript`, `react`, `pnpm`, `terraform`, `python`, `fastapi`, `keboola-cli`, `sql`, `bash`, ...).
+- Per-entry `Tech:` = narrower stack if the entry applies only to it. If it applies universally (e.g. user language preference, git workflow), omit the field.
+- Without tech context, consolidation can't decide whether "avoid export default" is a global rule or just a React-project rule.
 
-Když 0 nálezů, sekce Entries dostane jednu řádku: `_Žádné trvalé insighty v této session._`
+When there are 0 findings, the Entries section gets a single line: `_No durable insights in this session._`
 
 ## 4. Report
 
-**Headless mód:** žádný report (nikdo to nečte). Stačí zapsat soubor a skončit.
+**Headless mode:** no report (nobody reads it). Just write the file and exit.
 
-**Interaktivní mód:** vypiš krátce:
-- Cesta vytvořeného souboru
-- Počet entries (s titulky pokud ≤5; jinak počet po kategoriích)
-- Případně 1-2 hraniční nálezy se zeptat zda přidat
+**Interactive mode:** print briefly:
+- Path of the created file.
+- Entry count (with titles if ≤5; otherwise count broken down by category).
+- Optionally ask about 1–2 borderline findings the user might want to include.
 
-Žádné dlouhé summary celé session.
+No long session summary.
