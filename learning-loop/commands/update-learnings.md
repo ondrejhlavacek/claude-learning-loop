@@ -4,6 +4,16 @@ description: Triáž Claude Code session. Bez argumentů analyzuje aktuální ko
 
 Argumenty: `$ARGUMENTS`
 
+## Plugin data directory
+
+Tento plugin ukládá session learnings do `${CLAUDE_PLUGIN_DATA}/sessions/`. Na začátku zjisti cestu přes Bash:
+
+```bash
+echo "${CLAUDE_PLUGIN_DATA:?CLAUDE_PLUGIN_DATA is not set — is this running inside Claude Code as a plugin?}"
+```
+
+Pokud env var prázdná, oznam uživateli chybu prostředí a skonči — žádné hádání cesty. Žádný fallback by skrytě fragmentoval data, kdyby Claude Code někdy změnil formát plugin-data ID.
+
 ## Mód detekce
 
 Pokud `$ARGUMENTS` obsahuje **2-5 položek oddělených mezerou** (`<transcript.jsonl> <output.md> [cwd] [git_branch] [session_id]`):
@@ -15,7 +25,7 @@ Pokud `$ARGUMENTS` obsahuje **2-5 položek oddělených mezerou** (`<transcript.
 
 Pokud `$ARGUMENTS` je **prázdné**:
 - **Interaktivní mód**: analyzuj aktuální konverzaci
-- Výstupní cesta = `~/Coding/claude-learnings/sessions/YYYY-MM-DD-HHMM.md`
+- Výstupní cesta = `<DATA_DIR>/sessions/YYYY-MM-DD-HHMM.md`, kde `<DATA_DIR>` je výsledek bash příkazu výše
 - `origin_cwd` = aktuální pracovní adresář (zjisti `pwd`)
 - `origin_branch` = aktuální git branch pokud je v gitu (zjisti `git branch --show-current`), jinak vynech
 - `session_id` vynech (interaktivní run nemá deterministicky známé session_id)

@@ -4,8 +4,8 @@ A Claude Code plugin that turns every session into reusable knowledge.
 
 ## What it does
 
-1. **Session triage** — when a Claude Code session ends, a `SessionEnd` hook spawns a detached headless Claude that reads the just-finished transcript and writes a per-session learnings file into `~/Coding/claude-learnings/sessions/`.
-2. **Consolidation** — on demand, the `/learning-loop:consolidate-learnings` command merges all session files into `~/Coding/claude-learnings/PRINCIPLES.md` (grouped global vs. per-repo) and archives the processed sessions.
+1. **Session triage** — when a Claude Code session ends, a `SessionEnd` hook spawns a detached headless Claude that reads the just-finished transcript and writes a per-session learnings file into the plugin's persistent data directory.
+2. **Consolidation** — on demand, the `/learning-loop:consolidate-learnings` command merges all session files into `PRINCIPLES.md` (grouped global vs. per-repo) and archives the processed sessions.
 
 The triage looks for four kinds of findings: **skill-gap**, **friction**, **knowledge**, **automation**. Generic coding best-practices and one-off context are filtered out.
 
@@ -17,18 +17,20 @@ The triage looks for four kinds of findings: **skill-gap**, **friction**, **know
 | Command | `commands/consolidate-learnings.md` | `/learning-loop:consolidate-learnings` |
 | Hook | `hooks/hooks.json` → `hooks/update-learnings-hook.sh` | `SessionEnd` (async, detached) |
 
-## Output location
+## Data location
 
-Files are written to `~/Coding/claude-learnings/`:
+The plugin writes everything into Claude Code's per-plugin persistent data directory, exposed as `${CLAUDE_PLUGIN_DATA}`. For this plugin it resolves to `~/.claude/plugins/data/learning-loop-ondrejhlavacek/` with this layout:
 
 ```
-~/Coding/claude-learnings/
+${CLAUDE_PLUGIN_DATA}/
 ├── sessions/       # one .md per session (until consolidated)
 ├── archive/        # consolidated session files
 └── PRINCIPLES.md   # global + per-repo principles distilled from sessions
 ```
 
-The directory is created lazily by the hook on first run.
+This directory is **managed by Claude Code** — it survives plugin updates and re-installs, but is not touched by `/plugin marketplace update`. To wipe everything, `rm -rf` it manually.
+
+The path is portable: nothing leaks into your `$HOME` or any project repo. Hook scripts and slash commands both read the path strictly from `${CLAUDE_PLUGIN_DATA}` — **no hardcoded fallback** by design, so the plugin tracks whatever path Claude Code provides today and in the future.
 
 ## Requirements
 

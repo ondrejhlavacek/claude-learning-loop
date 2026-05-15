@@ -1,18 +1,38 @@
 ---
-description: Konsoliduje session soubory v ~/Coding/claude-learnings/sessions/ → updatuje PRINCIPLES.md a archivuje. Žádné edity mimo learnings/ adresář, jen flaguje návrhy.
+description: Konsoliduje session soubory v plugin data adresáři → updatuje PRINCIPLES.md a archivuje. Žádné edity mimo data adresář, jen flaguje návrhy.
 ---
 
-Projdi všechny session soubory v `~/Coding/claude-learnings/sessions/` a proveď konsolidaci. **Nic mimo `~/Coding/claude-learnings/` automaticky neměň** (žádné edity CLAUDE.md, skillů, hooků). Akce na úpravu jiných souborů jen flaguj jako návrhy.
+## Plugin data directory
+
+Tento plugin pracuje s adresářem `${CLAUDE_PLUGIN_DATA}`. Na začátku zjisti cestu přes Bash a ulož si do `DATA_DIR`:
+
+```bash
+DATA_DIR="${CLAUDE_PLUGIN_DATA:?CLAUDE_PLUGIN_DATA is not set — is this running inside Claude Code as a plugin?}"
+echo "$DATA_DIR"
+```
+
+Pokud env var prázdná, oznam uživateli chybu prostředí a skonči — žádný fallback, žádné hádání cesty.
+
+Dál v textu používám `$DATA_DIR` jako tento root path. Struktura:
+
+```
+$DATA_DIR/
+├── sessions/       # per-session learnings (vstup konsolidace)
+├── archive/        # zpracované session soubory
+└── PRINCIPLES.md   # konsolidované principy
+```
+
+**Nic mimo `$DATA_DIR` automaticky neměň** (žádné edity CLAUDE.md, skillů, hooků). Akce na úpravu jiných souborů jen flaguj jako návrhy.
 
 ## 1. Načti vstup
 
 ```bash
-ls ~/Coding/claude-learnings/sessions/*.md 2>/dev/null
+ls "$DATA_DIR/sessions/"*.md 2>/dev/null
 ```
 
 Pokud je seznam prázdný, oznam "není co konsolidovat" a skonči.
 
-Přečti všechny session soubory + aktuální `~/Coding/claude-learnings/PRINCIPLES.md`.
+Přečti všechny session soubory + aktuální `$DATA_DIR/PRINCIPLES.md` (pokud existuje).
 
 ## 2. Analýza napříč entries
 
@@ -55,10 +75,11 @@ PRINCIPLES.md má zůstat **krátký a stabilní** — ideálně do ~30 odráže
 
 ## 4. Archivace session souborů
 
-Všechny session soubory, které jsi zpracoval, přesuň do `~/Coding/claude-learnings/archive/`:
+Všechny session soubory, které jsi zpracoval, přesuň do `$DATA_DIR/archive/`:
 
 ```bash
-mv ~/Coding/claude-learnings/sessions/<file>.md ~/Coding/claude-learnings/archive/
+mkdir -p "$DATA_DIR/archive"
+mv "$DATA_DIR/sessions/<file>.md" "$DATA_DIR/archive/"
 ```
 
 **Výjimka:** session soubor s `status: open` v frontmatteru, kde žádný entry nebyl použit pro principle ani sloučen — ponech v `sessions/` (může se stát relevantním později spolu s budoucími entries). Označuj střídmě, default je archivovat.

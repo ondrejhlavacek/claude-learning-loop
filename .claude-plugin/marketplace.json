@@ -1,6 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-marketplace.json",
-  "name": "claude-learning-loop",
+  "name": "ondrejhlavacek",
+  "description": "Personal Claude Code plugins by Ondrej Hlavacek.",
   "owner": {
     "name": "Ondrej Hlavacek",
     "url": "https://github.com/ondrejhlavacek"
