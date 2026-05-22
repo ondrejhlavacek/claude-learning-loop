@@ -131,9 +131,13 @@ Print:
 For each principle or high-impact entry, propose a target file:
 
 ```
-1. [PRINCIPLE→CLAUDE.md] "..." → add to ~/.claude/CLAUDE.md section X
-2. [PATTERN→SKILL] entries Y, Z suggest a skill for domain D
-3. [FRICTION→HOOK] friction Q recurs → PostToolUse hook with X
+1. [PRINCIPLE→CLAUDE.md global] "..." → add to ~/.claude/CLAUDE.md section X
+2. [PRINCIPLE→CLAUDE.md project] "..." → add to <origin_cwd>/CLAUDE.md (repo-specific convention)
+3. [GAP→EXISTING SKILL] entries Y, Z reveal a gap in skill <name> — add rule "..." to that skill
+4. [PATTERN→NEW SKILL] entries Y, Z suggest a new skill for domain D
+5. [FRICTION→HOOK] friction Q recurs → PostToolUse hook with X
 ```
+
+When the source entries came from trigger 6 (bot / second-opinion reviews), strongly prefer **EXISTING SKILL** or **CLAUDE.md project** targets — bots flag concrete rules in concrete contexts, not generic principles.
 
 End by asking: "Want to apply any of these?" — wait for an explicit OK before applying anything.

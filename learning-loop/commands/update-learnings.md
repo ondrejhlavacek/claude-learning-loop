@@ -65,6 +65,7 @@ Look for findings in four categories:
 3. **More than 2 iterations on a trivial goal** (Claude had to fix the same kind of issue 3+ times — typos in filenames, wrong paths, repeated lint failures).
 4. **The user revealed an unknown fact about the setup/project** ("we use X here", "watch out, Y is in Z", "it's in repo W") — something you could not have guessed from the code.
 5. **A user repeated a manual step** that should have been automated (3+ identical fix-ups in one session).
+6. **An automated reviewer flagged something Claude should have anticipated** — a bot review (GitHub Copilot, CodeRabbit, Codiumate, Codium PR Agent, etc.) or the `/second-opinion` skill (Gemini) pointed out an issue Claude didn't catch (bug, security flaw, missing validation, edge case, convention mismatch) and the user accepted the fix. Record the pattern the reviewer flagged + why Claude missed it.
 
 Without at least one of these triggers → **do not record**. Subjective vibes ("the user probably prefers X") are not enough.
 
@@ -74,19 +75,39 @@ Without at least one of these triggers → **do not record**. Subjective vibes (
 - Things already documented in the code/git/CLAUDE.md.
 - Current task progress.
 - Banalities ("user prefers clean code", "user wants tests").
+- Cosmetic bot nits the user dismissed ("Copilot is wrong here, leave it", "ignore CodeRabbit on this one").
+- Style preferences already enforced by a linter/formatter in the repo.
 
 If there's nothing to record (no trigger fired), create a file with an empty Entries section anyway — empty is better than fabricated.
 
 In headless mode, be extra conservative — without interactive context the false-positive risk is higher. When in doubt, leave it out.
 
+### Detecting bot / second-opinion reviews (trigger 6)
+
+Where to look in the transcript:
+- `Bash` output from `gh pr view`, `gh pr view --comments`, `gh api repos/.../pulls/.../comments`, `gh api repos/.../pulls/.../reviews`, `gh pr review` — look for bot authors like `copilot-pull-request-reviewer[bot]`, `Copilot`, `coderabbitai[bot]`, `codiumai-pr-agent[bot]`, `github-actions[bot]`, `sonarqubecloud[bot]`.
+- Output of the `second-opinion` skill (calls Gemini CLI) — treat findings the user agreed with as the same kind of signal.
+- Claude's edits/commits that **followed** such a review and addressed the reviewer's point.
+
+For each reviewer finding that the user accepted, ask:
+- **What pattern did the bot flag?** State it concretely (e.g. "missing null check on `response.data` before `.map()`", "string-concatenated SQL in `getUser()`", "race condition: cache invalidation runs after the write returns", "function returns `Promise<any>` instead of typed result").
+- **Why did Claude miss it?** Pick one: no relevant skill was loaded; wrong default behavior; missing project context; Claude knew the rule but didn't apply it under the current load.
+- **What's the durable rule?** The fix itself isn't a learning — the *general pattern* the bot taught is. ("Always validate API response shape before destructuring." not "Add `if (!data) return;` to this specific function.")
+
+Bot reviews are a **higher-signal source than general session noise** — a human took the time to integrate the fix. Lean toward recording (but still under the existing "don't record" filters).
+
 ## 2. Action triage
 
 For each finding, propose an action (just a proposal — **apply nothing**):
-- **CLAUDE.md (global / project)** — a rule that always applies.
-- **New skill** — situational workflow loaded on demand.
+- **CLAUDE.md global** (`~/.claude/CLAUDE.md`) — a rule that always applies, across every repo.
+- **CLAUDE.md project** (`<repo>/CLAUDE.md`) — a rule specific to the repo where the session ran. Prefer this over global for repo-conventions, project-specific stacks, internal tooling, etc.
+- **Existing skill update** — name the skill (e.g. "feature-dev:feature-dev", "superpowers:test-driven-development") if a skill *should* have caught this but didn't. Bot reviews often surface gaps in existing skills.
+- **New skill** — situational workflow loaded on demand. Only when no existing skill covers the area.
 - **Hook** — event-driven automation.
 - **Auto-memory** — a specific fact (type user/feedback/project/reference).
 - **None** — just record it.
+
+For trigger 6 (bot/second-opinion reviews), the most common targets are **Existing skill update** (the skill that *should* have prevented the bot's finding) or **CLAUDE.md project** (when the rule is repo-specific). Global CLAUDE.md is rare — only for cross-stack, cross-repo conventions.
 
 ## 3. Writing the file
 
