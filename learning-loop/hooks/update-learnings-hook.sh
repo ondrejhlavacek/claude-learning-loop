@@ -50,7 +50,7 @@ shopt -u nullglob
 # Detached so it survives parent session ending.
 LEARNINGS_HOOK_RUNNING=1 nohup claude \
   -p "/learning-loop:update-learnings $TRANSCRIPT $OUT $CWD $BRANCH $SID" \
-  --model 'claude-sonnet-4-6[1m]' \
+  --model 'claude-sonnet-5[1m]' \
   --allowed-tools "Read,Write,Edit" \
   --permission-mode bypassPermissions \
   >/dev/null 2>&1 < /dev/null &
