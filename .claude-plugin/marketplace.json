@@ -11,7 +11,7 @@
       "name": "learning-loop",
       "source": "./learning-loop",
       "description": "Triage each Claude Code session into per-session learnings, then consolidate them into stable principles.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "category": "workflow",
       "tags": ["learnings", "session-triage", "principles", "hooks"]
     }
