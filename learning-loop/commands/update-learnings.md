@@ -78,9 +78,11 @@ Without at least one of these triggers → **do not record**. Subjective vibes (
 - Cosmetic bot nits the user dismissed ("Copilot is wrong here, leave it", "ignore CodeRabbit on this one").
 - Style preferences already enforced by a linter/formatter in the repo.
 
-If there's nothing to record (no trigger fired), create a file with an empty Entries section anyway — empty is better than fabricated.
+**Triage filter — no-insight sessions produce no file in headless mode.** If no trigger fired (0 findings):
+- **Headless mode:** write **no file at all** and exit. Do not create an empty-Entries file. Rationale: ~36% of archived sessions were empty-Entries stubs (single-command CLI runs, OOM-killed jobs, bare one-word prompts) that add pure noise to consolidation and never yield a principle. Skipping the write is safe — the triage still ran, it just found nothing worth persisting. This is NOT license to fabricate: the bar for writing a file is still "≥1 hard trigger fired" (§ above).
+- **Interactive mode:** still create the file with an empty Entries section (`_No durable insights in this session._`) so the user sees the run happened — interactive noise is visible and cheap.
 
-In headless mode, be extra conservative — without interactive context the false-positive risk is higher. When in doubt, leave it out.
+In headless mode, be extra conservative — without interactive context the false-positive risk is higher. When in doubt, leave it out (and therefore write nothing).
 
 ### Detecting bot / second-opinion reviews (trigger 6)
 
@@ -145,11 +147,11 @@ mode: headless | interactive
 - Per-entry `Tech:` = narrower stack if the entry applies only to it. If it applies universally (e.g. user language preference, git workflow), omit the field.
 - Without tech context, consolidation can't decide whether "avoid export default" is a global rule or just a React-project rule.
 
-When there are 0 findings, the Entries section gets a single line: `_No durable insights in this session._`
+When there are 0 findings: **headless mode writes no file at all** (see the triage filter in §1); **interactive mode** writes the file with a single-line Entries section: `_No durable insights in this session._`
 
 ## 4. Report
 
-**Headless mode:** no report (nobody reads it). Just write the file and exit.
+**Headless mode:** no report (nobody reads it). Write the file and exit — or, if 0 findings, write nothing and exit (see the triage filter in §1).
 
 **Interactive mode:** print briefly:
 - Path of the created file.
